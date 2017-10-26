@@ -36,7 +36,8 @@ class MAA2C(object):
                  reward_gamma=0.99,
                  done_penalty=None, training_strategy="centralized",
                  epsilon_start=0.9, epsilon_end=0.05,
-                 epsilon_decay=200, episodes_before_train=0):
+                 epsilon_decay=200, episodes_before_train=0,
+                 critic_loss="huber"):
 
         assert training_strategy in ["cocurrent", "centralized"]
         self.env = env
@@ -55,6 +56,7 @@ class MAA2C(object):
         self.max_grad_norm = max_grad_norm
         self.entropy_reg = entropy_reg
         self.batch_size = batch_size
+        self.critic_loss = critic_loss
         self.training_strategy = training_strategy
 
         # params for epsilon greedy
@@ -166,7 +168,10 @@ class MAA2C(object):
                 values = self.critics[agent_id](states_var[:,agent_id,:], actions_var[:,agent_id,:])
             elif self.training_strategy == "centralized":
                 values = self.critics[agent_id](whole_states_var, whole_actions_var)
-            critic_loss = nn.MSELoss()(values, target_values)
+            if self.critic_loss == "huber":
+                critic_loss = nn.functional.smooth_l1_loss(values, target_values)
+            else:
+                critic_loss = nn.MSELoss()(values, target_values)
             critic_loss.backward()
             if self.max_grad_norm is not None:
                 nn.utils.clip_grad_norm(self.critics[agent_id].parameters(), self.max_grad_norm)

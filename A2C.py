@@ -25,7 +25,8 @@ class A2C(object):
                  use_cuda=False, batch_size=10, n_steps=5,
                  reward_gamma=0.99, done_penalty=None,
                  epsilon_start=0.9, epsilon_end=0.05,
-                 epsilon_decay=200, episodes_before_train=100):
+                 epsilon_decay=200, episodes_before_train=100,
+                 critic_loss="huber"):
 
         self.memory = ReplayMemory(memory_capacity)
 
@@ -42,6 +43,7 @@ class A2C(object):
         self.max_grad_norm = max_grad_norm
         self.entropy_reg = entropy_reg
         self.batch_size = batch_size
+        self.critic_loss = critic_loss
 
         # params for epsilon greedy
         self.epsilon_start = epsilon_start
@@ -131,7 +133,10 @@ class A2C(object):
         self.critic_optimizer.zero_grad()
         target_values = rewards_var
         values = self.critic(states_var, actions_var)
-        critic_loss = nn.MSELoss()(values, target_values)
+        if self.critic_loss == "huber":
+            critic_loss = nn.functional.smooth_l1_loss(values, target_values)
+        else:
+            critic_loss = nn.MSELoss()(values, target_values)
         critic_loss.backward()
         if self.max_grad_norm is not None:
             nn.utils.clip_grad_norm(self.critic.parameters(), self.max_grad_norm)
