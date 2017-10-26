@@ -4,6 +4,10 @@ from torch.autograd import Variable
 import numpy as np
 
 
+def identity(x):
+    return x
+
+
 def entropy(p):
     return -th.sum(p * th.log(p), 1)
 

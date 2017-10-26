@@ -6,7 +6,7 @@ import numpy as np
 
 from common.Memory import ReplayMemory
 from common.Model import ActorNetwork
-from common.utils import to_tensor_var
+from common.utils import identity, to_tensor_var
 
 
 class DQN(object):
@@ -47,7 +47,7 @@ class DQN(object):
         self.loss = loss
         self.episodes_before_train = episodes_before_train
 
-        self.value_network = ActorNetwork(self.state_dim, hidden_size, self.action_dim, lambda x: x)
+        self.value_network = ActorNetwork(self.state_dim, hidden_size, self.action_dim, identity)
         if optimizer_type == "adam":
             self.value_network_optimizer = Adam(self.value_network.parameters(), lr=lr)
         elif optimizer_type == "rmsprop":
