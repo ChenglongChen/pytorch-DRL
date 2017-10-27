@@ -11,20 +11,26 @@ import matplotlib.pyplot as plt
 MAX_EPISODES = 10000
 EPISODES_BEFORE_TRAIN = 100
 EVAL_EPISODES = 10
-EVAL_INTERVAL = 20
-# max steps in each episode
-MAX_STEPS = 1000
+EVAL_INTERVAL = 100
+
+# max steps in each episode, prevent from running too long
+MAX_STEPS = 10000 # None
 
 MEMORY_CAPACITY = 10000
-BATCH_SIZE = 1000
+BATCH_SIZE = 10
 CRITIC_LOSS = "mse"
 MAX_GRAD_NORM = None
+
+TARGET_UPDATE_STEPS = 5
+TARGET_TAU = 0.01
 
 REWARD_DISCOUNTED_GAMMA = 0.99
 
 EPSILON_START = 0.99
 EPSILON_END = 0.05
 EPSILON_DECAY = 500
+
+DONE_PENALTY = -10.
 
 RANDOM_SEED = 2017
 
@@ -41,6 +47,8 @@ def run(env_id="Pendulum-v0"):
     ddpg = DDPG(env=env, memory_capacity=MEMORY_CAPACITY,
                 state_dim=state_dim, action_dim=action_dim,
                 batch_size=BATCH_SIZE, max_steps=MAX_STEPS,
+                done_penalty=DONE_PENALTY,
+                target_update_steps=TARGET_UPDATE_STEPS, target_tau=TARGET_TAU,
                 reward_gamma=REWARD_DISCOUNTED_GAMMA, critic_loss=CRITIC_LOSS,
                 epsilon_start=EPSILON_START, epsilon_end=EPSILON_END,
                 epsilon_decay=EPSILON_DECAY, max_grad_norm=MAX_GRAD_NORM,

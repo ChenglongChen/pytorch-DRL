@@ -14,11 +14,11 @@ EVAL_EPISODES = 10
 EVAL_INTERVAL = 100
 
 # roll out n steps
-N_STEPS = 10
-# only remember the latest N_STEPS
-MEMORY_CAPACITY = N_STEPS
-# only use the latest N_STEPS for training a2c
-BATCH_SIZE = N_STEPS
+ROLL_OUT_N_STEPS = 10
+# only remember the latest ROLL_OUT_N_STEPS
+MEMORY_CAPACITY = ROLL_OUT_N_STEPS
+# only use the latest ROLL_OUT_N_STEPS for training a2c
+BATCH_SIZE = ROLL_OUT_N_STEPS
 
 REWARD_DISCOUNTED_GAMMA = 0.99
 ENTROPY_REG = 0.00
@@ -50,7 +50,7 @@ def run(env_id="CartPole-v0"):
     a2c = A2C(env=env, memory_capacity=MEMORY_CAPACITY,
               state_dim=state_dim, action_dim=action_dim,
               batch_size=BATCH_SIZE, entropy_reg=ENTROPY_REG,
-              done_penalty=DONE_PENALTY, n_steps=N_STEPS,
+              done_penalty=DONE_PENALTY, roll_out_n_steps=ROLL_OUT_N_STEPS,
               reward_gamma=REWARD_DISCOUNTED_GAMMA,
               epsilon_start=EPSILON_START, epsilon_end=EPSILON_END,
               epsilon_decay=EPSILON_DECAY, max_grad_norm=MAX_GRAD_NORM,

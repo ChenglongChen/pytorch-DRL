@@ -1,12 +1,11 @@
 
-import torch as th
 import torch.nn as nn
 from torch.optim import Adam, RMSprop
-from copy import deepcopy
+
 import numpy as np
+from copy import deepcopy
 
 from common.Agent import Agent
-from common.Memory import ReplayMemory
 from common.Model import ActorNetwork, CriticNetwork
 from common.utils import to_tensor_var
 
@@ -18,86 +17,49 @@ class DDPG(Agent):
     - Critic takes both state and action as input
     - Critic uses gradient temporal-difference learning
     """
-    def __init__(self, env, memory_capacity, state_dim, action_dim,
-                 actor_hidden_size=32, actor_lr=0.001,
-                 actor_output_act=nn.functional.tanh,
-                 critic_hidden_size=32, critic_lr=0.001,
-                 max_grad_norm=None, max_steps=1000,
-                 optimizer_type="rmsprop", alpha=0.99, epsilon=1e-08,
-                 use_cuda=True, batch_size=10,
-                 reward_gamma=0.99,
-                 done_penalty=None, episodes_before_train=100,
-                 target_tau=0.01, reward_scale=1.0,
-                 critic_loss="huber", epsilon_start=0.99, epsilon_end=0.05,
-                 epsilon_decay=200):
+    def __init__(self, env, state_dim, action_dim,
+                 memory_capacity=10000, max_steps=None,
+                 target_tau=0.01, target_update_steps=5,
+                 reward_gamma=0.99, reward_scale=1., done_penalty=None,
+                 actor_hidden_size=32, critic_hidden_size=32,
+                 actor_output_act=nn.functional.tanh, critic_loss="mse",
+                 actor_lr=0.001, critic_lr=0.001,
+                 optimizer_type="rmsprop", entropy_reg=0.01,
+                 max_grad_norm=0.5, batch_size=100, episodes_before_train=100,
+                 epsilon_start=0.9, epsilon_end=0.01, epsilon_decay=200,
+                 use_cuda=True):
+        super(DDPG, self).__init__(env, state_dim, action_dim,
+                 memory_capacity, max_steps,
+                 reward_gamma, reward_scale, done_penalty,
+                 actor_hidden_size, critic_hidden_size,
+                 actor_output_act, critic_loss,
+                 actor_lr, critic_lr,
+                 optimizer_type, entropy_reg,
+                 max_grad_norm, batch_size, episodes_before_train,
+                 epsilon_start, epsilon_end, epsilon_decay,
+                 use_cuda)
 
-        self.memory = ReplayMemory(memory_capacity)
-
-        self.env = env
-        self.state_dim = state_dim
-        self.action_dim = action_dim
-        self.env_state = self.env.reset()
-        self.n_episodes = 0
-        self.n_steps = 0
-        self.max_steps = max_steps
-        self.done_penalty = done_penalty
-        self.reward_gamma = reward_gamma
         self.target_tau = target_tau
-        self.reward_scale = reward_scale
+        self.target_update_steps = target_update_steps
 
-        self.max_grad_norm = max_grad_norm
-        self.batch_size = batch_size
-        self.episodes_before_train = episodes_before_train
-        self.critic_loss = critic_loss
-
-        # params for epsilon greedy
-        self.epsilon_start = epsilon_start
-        self.epsilon_end = epsilon_end
-        self.epsilon_decay = epsilon_decay
-
-        self.actor = ActorNetwork(self.state_dim, actor_hidden_size, self.action_dim, actor_output_act)
-        self.critic = CriticNetwork(self.state_dim, self.action_dim, critic_hidden_size, 1)
+        self.actor = ActorNetwork(self.state_dim, self.actor_hidden_size, self.action_dim, self.actor_output_act)
+        self.critic = CriticNetwork(self.state_dim, self.action_dim, self.critic_hidden_size, 1)
         # to ensure target network and learning network has the same weights
         self.actor_target = deepcopy(self.actor)
         self.critic_target = deepcopy(self.critic)
 
-        if optimizer_type == "adam":
-            self.actor_optimizer = Adam(self.actor.parameters(), lr=actor_lr)
-            self.critic_optimizer = Adam(self.critic.parameters(), lr=critic_lr)
-        elif optimizer_type == "rmsprop":
-            self.actor_optimizer = RMSprop(
-                self.actor.parameters(), lr=actor_lr, alpha=alpha, eps=epsilon)
-            self.critic_optimizer = RMSprop(
-                self.critic.parameters(), lr=critic_lr, alpha=alpha, eps=epsilon)
+        if self.optimizer_type == "adam":
+            self.actor_optimizer = Adam(self.actor.parameters(), lr=self.actor_lr)
+            self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
+        elif self.optimizer_type == "rmsprop":
+            self.actor_optimizer = RMSprop(self.actor.parameters(), lr=self.actor_lr)
+            self.critic_optimizer = RMSprop(self.critic.parameters(), lr=self.critic_lr)
 
-        self.use_cuda = use_cuda and th.cuda.is_available()
         if self.use_cuda:
             self.actor.cuda()
             self.critic.cuda()
             self.actor_target.cuda()
             self.critic_target.cuda()
-
-    # agent interact with the environment to collect experience
-    def interact(self):
-        if self.n_steps >= self.max_steps:
-            self.env_state = self.env.reset()
-            self.n_steps = 0
-        state = self.env_state
-        # take one step action and get one step reward
-        action = self.exploration_action(self.env_state)
-        next_state, reward, done, _ = self.env.step(action)
-        if done:
-            if self.done_penalty is not None:
-                reward = self.done_penalty
-            next_state = [0]*len(state)
-            self.env_state = self.env.reset()
-            self.n_episodes += 1
-            self.episode_done = True
-        else:
-            self.env_state = next_state
-            self.episode_done = False
-        self.n_steps += 1
-        self.memory.push(state, action, reward, next_state, done)
 
     # soft update the actor target network or critic target network
     def _soft_update_target(self, target, source):
@@ -150,7 +112,7 @@ class DDPG(Agent):
         self.actor_optimizer.step()
 
         # update actor target network and critic target network
-        if self.n_steps % 100 == 0 and self.n_steps > 0:
+        if self.n_steps % self.target_update_steps == 0 and self.n_steps > 0:
             self._soft_update_target(self.critic_target, self.critic)
             self._soft_update_target(self.actor_target, self.actor)
 

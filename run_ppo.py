@@ -1,5 +1,5 @@
 
-from ACKTR import ACKTR
+from PPO import PPO
 from common.utils import agg_double_list
 
 import sys
@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 MAX_EPISODES = 10000
-EPISODES_BEFORE_TRAIN = 0
+EPISODES_BEFORE_TRAIN = 100
 EVAL_EPISODES = 10
 EVAL_INTERVAL = 100
 
@@ -19,6 +19,9 @@ ROLL_OUT_N_STEPS = 10
 MEMORY_CAPACITY = ROLL_OUT_N_STEPS
 # only use the latest ROLL_OUT_N_STEPS for training a2c
 BATCH_SIZE = ROLL_OUT_N_STEPS
+
+TARGET_UPDATE_STEPS = 5
+TARGET_TAU = 1.0
 
 REWARD_DISCOUNTED_GAMMA = 0.99
 ENTROPY_REG = 0.00
@@ -47,10 +50,11 @@ def run(env_id="CartPole-v0"):
     else:
         action_dim = env.action_space.n
 
-    acktr = ACKTR(env=env, memory_capacity=MEMORY_CAPACITY,
+    ppo = PPO(env=env, memory_capacity=MEMORY_CAPACITY,
               state_dim=state_dim, action_dim=action_dim,
               batch_size=BATCH_SIZE, entropy_reg=ENTROPY_REG,
               done_penalty=DONE_PENALTY, roll_out_n_steps=ROLL_OUT_N_STEPS,
+              target_update_steps=TARGET_UPDATE_STEPS, target_tau=TARGET_TAU,
               reward_gamma=REWARD_DISCOUNTED_GAMMA,
               epsilon_start=EPSILON_START, epsilon_end=EPSILON_END,
               epsilon_decay=EPSILON_DECAY, max_grad_norm=MAX_GRAD_NORM,
@@ -59,28 +63,28 @@ def run(env_id="CartPole-v0"):
 
     episodes =[]
     eval_rewards =[]
-    while acktr.n_episodes < MAX_EPISODES:
-        acktr.interact()
-        if acktr.n_episodes >= EPISODES_BEFORE_TRAIN:
-            acktr.train()
-        if acktr.episode_done and ((acktr.n_episodes+1)%EVAL_INTERVAL == 0):
-            rewards, _ = acktr.evaluation(env_eval, EVAL_EPISODES)
+    while ppo.n_episodes < MAX_EPISODES:
+        ppo.interact()
+        if ppo.n_episodes >= EPISODES_BEFORE_TRAIN:
+            ppo.train()
+        if ppo.episode_done and ((ppo.n_episodes+1)%EVAL_INTERVAL == 0):
+            rewards, _ = ppo.evaluation(env_eval, EVAL_EPISODES)
             rewards_mu, rewards_std = agg_double_list(rewards)
-            print("Episode %d, Average Reward %.2f" % (acktr.n_episodes+1, rewards_mu))
-            episodes.append(acktr.n_episodes+1)
+            print("Episode %d, Average Reward %.2f" % (ppo.n_episodes+1, rewards_mu))
+            episodes.append(ppo.n_episodes+1)
             eval_rewards.append(rewards_mu)
 
     episodes = np.array(episodes)
     eval_rewards = np.array(eval_rewards)
-    np.savetxt("./output/%s_acktr_episodes.txt"%env_id, episodes)
-    np.savetxt("./output/%s_acktr_eval_rewards.txt"%env_id, eval_rewards)
+    np.savetxt("./output/%s_ppo_episodes.txt"%env_id, episodes)
+    np.savetxt("./output/%s_ppo_eval_rewards.txt"%env_id, eval_rewards)
 
     plt.figure()
     plt.plot(episodes, eval_rewards)
     plt.xlabel("Episode")
     plt.ylabel("Average Reward")
     plt.legend(["A2C"])
-    plt.savefig("./output/%s_acktr.png"%env_id)
+    plt.savefig("./output/%s_ppo.png"%env_id)
 
 
 if __name__ == "__main__":

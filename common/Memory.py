@@ -34,8 +34,8 @@ class ReplayMemory(object):
             self._push_one(states, actions, rewards, next_states, dones)
 
     def sample(self, batch_size):
-        if batch_size > self.__len__():
-            batch_size = self.__len__()
+        if batch_size > len(self.memory):
+            batch_size = len(self.memory)
         transitions = random.sample(self.memory, batch_size)
         batch = Experience(*zip(*transitions))
         return batch

@@ -9,18 +9,19 @@ import matplotlib.pyplot as plt
 
 
 MAX_EPISODES = 10000
-EPISODES_BEFORE_TRAIN = 20
+EPISODES_BEFORE_TRAIN = 0
 EVAL_EPISODES = 10
-EVAL_INTERVAL = 20
-# max steps in each episode
-MAX_STEPS = 10000
+EVAL_INTERVAL = 100
+
+# max steps in each episode, prevent from running too long
+MAX_STEPS = 10000 # None
 
 MEMORY_CAPACITY = 10000
-BATCH_SIZE = 1000
-LOSS_TYPE = "mse"
+BATCH_SIZE = 10
+CRITIC_LOSS = "mse"
 MAX_GRAD_NORM = None
 
-REWARD_DISCOUNTED_GAMMA = 0.999
+REWARD_DISCOUNTED_GAMMA = 0.99
 
 EPSILON_START = 0.99
 EPSILON_END = 0.05
@@ -46,7 +47,7 @@ def run(env_id="CartPole-v0"):
     dqn = DQN(env=env, memory_capacity=MEMORY_CAPACITY,
               state_dim=state_dim, action_dim=action_dim,
               batch_size=BATCH_SIZE, max_steps=MAX_STEPS,
-              done_penalty=DONE_PENALTY, loss=LOSS_TYPE,
+              done_penalty=DONE_PENALTY, critic_loss=CRITIC_LOSS,
               reward_gamma=REWARD_DISCOUNTED_GAMMA,
               epsilon_start=EPSILON_START, epsilon_end=EPSILON_END,
               epsilon_decay=EPSILON_DECAY, max_grad_norm=MAX_GRAD_NORM,

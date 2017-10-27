@@ -4,32 +4,35 @@ from torch import nn
 from torch.optim import Adam, RMSprop
 
 import numpy as np
+from copy import deepcopy
 
 from common.Agent import Agent
 from common.Model import ActorNetwork, CriticNetwork
-from common.utils import entropy, index_to_one_hot, to_tensor_var
+from common.utils import index_to_one_hot, to_tensor_var
 
 
-class A2C(Agent):
+class PPO(Agent):
     """
-    An agent learned with Advantage Actor-Critic
+    An agent learned with PPO using Advantage Actor-Critic framework
     - Actor takes state as input
     - Critic takes both state and action as input
     - agent interact with environment to collect experience
     - agent training with experience to update policy
+    - adam seems better than rmsprop for ppo
     """
     def __init__(self, env, state_dim, action_dim,
                  memory_capacity=10000, max_steps=None,
-                 roll_out_n_steps=10,
+                 roll_out_n_steps=1, target_tau=1.,
+                 target_update_steps=5, clip_param=0.2,
                  reward_gamma=0.99, reward_scale=1., done_penalty=None,
                  actor_hidden_size=32, critic_hidden_size=32,
-                 actor_output_act=nn.functional.softmax, critic_loss="mse",
+                 actor_output_act=nn.functional.log_softmax, critic_loss="mse",
                  actor_lr=0.001, critic_lr=0.001,
-                 optimizer_type="rmsprop", entropy_reg=0.01,
+                 optimizer_type="adam", entropy_reg=0.01,
                  max_grad_norm=0.5, batch_size=100, episodes_before_train=100,
                  epsilon_start=0.9, epsilon_end=0.01, epsilon_decay=200,
                  use_cuda=True):
-        super(A2C, self).__init__(env, state_dim, action_dim,
+        super(PPO, self).__init__(env, state_dim, action_dim,
                  memory_capacity, max_steps,
                  reward_gamma, reward_scale, done_penalty,
                  actor_hidden_size, critic_hidden_size,
@@ -41,17 +44,29 @@ class A2C(Agent):
                  use_cuda)
 
         self.roll_out_n_steps = roll_out_n_steps
+        self.target_tau = target_tau
+        self.target_update_steps = target_update_steps
+        self.clip_param = clip_param
 
-        self.actor = ActorNetwork(self.state_dim, self.actor_hidden_size, self.action_dim, self.actor_output_act)
+        self.actor = ActorNetwork(self.state_dim, self.actor_hidden_size,
+                                  self.action_dim, self.actor_output_act)
         self.critic = CriticNetwork(self.state_dim, self.action_dim, self.critic_hidden_size, 1)
+        # to ensure target network and learning network has the same weights
+        self.actor_target = deepcopy(self.actor)
+        self.critic_target = deepcopy(self.critic)
+
         if self.optimizer_type == "adam":
             self.actor_optimizer = Adam(self.actor.parameters(), lr=self.actor_lr)
             self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
         elif self.optimizer_type == "rmsprop":
             self.actor_optimizer = RMSprop(self.actor.parameters(), lr=self.actor_lr)
             self.critic_optimizer = RMSprop(self.critic.parameters(), lr=self.critic_lr)
+
         if self.use_cuda:
             self.actor.cuda()
+            self.critic.cuda()
+            self.actor_target.cuda()
+            self.critic_target.cuda()
 
     # discount roll out rewards
     def _discount_reward(self, rewards, final_r):
@@ -97,6 +112,12 @@ class A2C(Agent):
         self.n_steps += 1
         self.memory.push(states, actions, rewards)
 
+    # soft update the actor target network or critic target network
+    def _soft_update_target(self, target, source):
+        for t, s in zip(target.parameters(), source.parameters()):
+            t.data.copy_(
+                (1. - self.target_tau) * t.data + self.target_tau * s.data)
+
     # train on a roll out batch
     def train(self):
         if self.n_episodes <= self.episodes_before_train:
@@ -109,14 +130,19 @@ class A2C(Agent):
 
         # update actor network
         self.actor_optimizer.zero_grad()
-        # actions_var is with noise, while softmax_actions is the accurate predictions
-        softmax_actions = self.actor(states_var)
-        neg_logloss = - th.sum(softmax_actions * actions_var, 1)
-        values = self.critic(states_var, actions_var).detach()
+        values = self.critic_target(states_var, actions_var).detach()
         advantages = rewards_var - values
-        pg_loss = th.mean(neg_logloss * advantages)
-        entropy_loss = th.mean(entropy(softmax_actions))
-        actor_loss = pg_loss - entropy_loss * self.entropy_reg
+        # # normalizing advantages seems not working correctly here
+        # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
+        action_log_probs = self.actor(states_var)
+        action_log_probs = th.sum(action_log_probs * actions_var, 1)
+        old_action_log_probs = self.actor_target(states_var).detach()
+        old_action_log_probs = th.sum(old_action_log_probs * actions_var, 1)
+        ratio = th.exp(action_log_probs - old_action_log_probs)
+        surr1 = ratio * advantages
+        surr2 = th.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * advantages
+        # PPO's pessimistic surrogate (L^CLIP)
+        actor_loss = - th.mean(th.min(surr1, surr2))
         actor_loss.backward()
         if self.max_grad_norm is not None:
             nn.utils.clip_grad_norm(self.actor.parameters(), self.max_grad_norm)
@@ -135,10 +161,15 @@ class A2C(Agent):
             nn.utils.clip_grad_norm(self.critic.parameters(), self.max_grad_norm)
         self.critic_optimizer.step()
 
+        # update actor target network and critic target network
+        if self.n_steps % self.target_update_steps == 0 and self.n_steps > 0:
+            self._soft_update_target(self.actor_target, self.actor)
+            self._soft_update_target(self.critic_target, self.critic)
+
     # predict softmax action based on state
-    def _softmax_action(self, state):
+    def _softmax_action(self, state, actor):
         state_var = to_tensor_var([state], self.use_cuda)
-        softmax_action_var = self.actor(state_var)
+        softmax_action_var = th.exp(actor(state_var))
         if self.use_cuda:
             softmax_action = softmax_action_var.data.cpu().numpy()[0]
         else:
@@ -147,7 +178,7 @@ class A2C(Agent):
 
     # predict action based on state, added random noise for exploration in training
     def exploration_action(self, state):
-        softmax_action = self._softmax_action(state)
+        softmax_action = self._softmax_action(state, self.actor)
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
                                   np.exp(-1. * self.n_steps / self.epsilon_decay)
         if np.random.rand() < epsilon:
@@ -158,7 +189,7 @@ class A2C(Agent):
 
     # predict action based on state for execution
     def action(self, state):
-        softmax_action = self._softmax_action(state)
+        softmax_action = self._softmax_action(state, self.actor)
         action = np.argmax(softmax_action)
         return action
 

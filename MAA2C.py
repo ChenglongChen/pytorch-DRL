@@ -2,15 +2,15 @@
 import torch as th
 from torch import nn
 from torch.optim import Adam, RMSprop
+
 import numpy as np
 
-from common.Agent import Agent
-from common.Memory import ReplayMemory
+from A2C import A2C
 from common.Model import ActorNetwork, CriticNetwork
 from common.utils import entropy, index_to_one_hot, to_tensor_var
 
 
-class MAA2C(Agent):
+class MAA2C(A2C):
     """
     An multi-agent learned with Advantage Actor-Critic
     - Actor takes its local observations as input
@@ -28,81 +28,62 @@ class MAA2C(Agent):
                 each actor has different reward structure, e.g., cooperative, competitive,
                 mixed cooperative-competitive
     """
-    def __init__(self, env, memory_capacity, n_agents, state_dim, action_dim,
-                 actor_hidden_size=32, actor_lr=0.001,
-                 critic_hidden_size=32, critic_lr=0.001,
-                 max_grad_norm=None, entropy_reg=0.01,
-                 optimizer_type="rmsprop", alpha=0.99, epsilon=1e-08,
-                 use_cuda=True, batch_size=10, n_steps=5,
-                 reward_gamma=0.99,
-                 done_penalty=None, training_strategy="centralized",
-                 epsilon_start=0.9, epsilon_end=0.05,
-                 epsilon_decay=200, episodes_before_train=0,
-                 critic_loss="huber"):
+    def __init__(self, env, n_agents, state_dim, action_dim,
+                 memory_capacity=10000, max_steps=None,
+                 roll_out_n_steps=10,
+                 reward_gamma=0.99, reward_scale=1., done_penalty=None,
+                 actor_hidden_size=32, critic_hidden_size=32,
+                 actor_output_act=nn.functional.softmax, critic_loss="mse",
+                 actor_lr=0.001, critic_lr=0.001,
+                 optimizer_type="rmsprop", entropy_reg=0.01,
+                 max_grad_norm=0.5, batch_size=100, episodes_before_train=100,
+                 epsilon_start=0.9, epsilon_end=0.01, epsilon_decay=200,
+                 use_cuda=True, training_strategy="cocurrent"):
+        super(MAA2C, self).__init__(env, state_dim, action_dim,
+                 memory_capacity, max_steps, roll_out_n_steps,
+                 reward_gamma, reward_scale, done_penalty,
+                 actor_hidden_size, critic_hidden_size,
+                 actor_output_act, critic_loss,
+                 actor_lr, critic_lr,
+                 optimizer_type, entropy_reg,
+                 max_grad_norm, batch_size, episodes_before_train,
+                 epsilon_start, epsilon_end, epsilon_decay,
+                 use_cuda)
 
         assert training_strategy in ["cocurrent", "centralized"]
-        self.env = env
-        self.state_dim = state_dim
-        self.action_dim = action_dim
-        self.n_steps = n_steps
-        self.env_state = self.env.reset()
-        self.n_episodes = 0
-        self.done_penalty = done_penalty
-        self.reward_gamma = reward_gamma
-        self.episodes_before_train = episodes_before_train
 
         self.n_agents = n_agents
-        self.memory = ReplayMemory(memory_capacity)
-        
-        self.max_grad_norm = max_grad_norm
-        self.entropy_reg = entropy_reg
-        self.batch_size = batch_size
-        self.critic_loss = critic_loss
         self.training_strategy = training_strategy
 
-        # params for epsilon greedy
-        self.epsilon_start = epsilon_start
-        self.epsilon_end = epsilon_end
-        self.epsilon_decay = epsilon_decay
-
-        self.actors = [ActorNetwork(self.state_dim, actor_hidden_size, self.action_dim, nn.functional.softmax)] * self.n_agents
+        self.actors = [ActorNetwork(self.state_dim, self.actor_hidden_size, self.action_dim, self.actor_output_act)] * self.n_agents
         if self.training_strategy == "cocurrent":
-            self.critics = [CriticNetwork(self.state_dim, self.action_dim, critic_hidden_size, 1)] * self.n_agents
+            self.critics = [CriticNetwork(self.state_dim, self.action_dim, self.critic_hidden_size, 1)] * self.n_agents
         elif self.training_strategy == "centralized":
             critic_state_dim = self.n_agents * self.state_dim
             critic_action_dim = self.n_agents * self.action_dim
-            self.critics = [CriticNetwork(critic_state_dim, critic_action_dim, critic_hidden_size, 1)] * self.n_agents
+            self.critics = [CriticNetwork(critic_state_dim, critic_action_dim, self.critic_hidden_size, 1)] * self.n_agents
         if optimizer_type == "adam":
-            self.actor_optimizers = [Adam(a.parameters(), lr=actor_lr) for a in self.actors]
-            self.critic_optimizers = [Adam(c.parameters(), lr=critic_lr) for c in self.critics]
+            self.actor_optimizers = [Adam(a.parameters(), lr=self.actor_lr) for a in self.actors]
+            self.critic_optimizers = [Adam(c.parameters(), lr=self.critic_lr) for c in self.critics]
         elif optimizer_type == "rmsprop":
-            self.actor_optimizers = [RMSprop(a.parameters(), lr=actor_lr, alpha=alpha, eps=epsilon)
-                                        for a in self.actors]
-            self.critic_optimizers = [RMSprop(c.parameters(), lr=critic_lr, alpha=alpha, eps=epsilon)
-                                        for c in self.critics]
-        self.use_cuda = use_cuda and th.cuda.is_available()
+            self.actor_optimizers = [RMSprop(a.parameters(), lr=self.actor_lr) for a in self.actors]
+            self.critic_optimizers = [RMSprop(c.parameters(), lr=self.critic_lr) for c in self.critics]
         if self.use_cuda:
             for a in self.actors:
                 a.cuda()
             for c in self.critics:
                 c.cuda()
 
-    # discount rewards
-    def _discount_reward(self, rewards, final_r):
-        discounted_r = np.zeros_like(rewards)
-        running_add = final_r
-        for t in reversed(range(0, len(rewards))):
-            running_add = running_add * self.reward_gamma + rewards[t]
-            discounted_r[t] = running_add
-        return discounted_r
-
     # agent interact with the environment to collect experience
     def interact(self):
+        if (self.max_steps is not None) and (self.n_steps >= self.max_steps):
+            self.env_state = self.env.reset()
+            self.n_steps = 0
         states = []
         actions = []
         rewards = []
         # take n steps
-        for i in range(self.n_steps):
+        for i in range(self.roll_out_n_steps):
             states.append(self.env_state)
             action = self.exploration_action(self.env_state)
             next_state, reward, done, _ = self.env.step(action)
@@ -128,7 +109,7 @@ class MAA2C(Agent):
         for agent_id in range(self.n_agents):
             rewards[:,agent_id] = self._discount_reward(rewards[:,agent_id], final_r[agent_id])
         rewards = rewards.tolist()
-
+        self.n_steps += 1
         self.memory.push(states, actions, rewards)
 
     # train on a roll out batch

@@ -2,8 +2,9 @@
 import torch as th
 import torch.nn as nn
 from torch.optim import Adam, RMSprop
-from copy import deepcopy
+
 import numpy as np
+from copy import deepcopy
 
 from common.Memory import ReplayMemory
 from common.Model import ActorNetwork, CriticNetwork

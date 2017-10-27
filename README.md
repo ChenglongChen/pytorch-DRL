@@ -6,6 +6,7 @@ This project includes PyTorch implementations of various Deep Reinforcement Lear
 - [ ] ACKTR
 - [ ] DQN
 - [ ] DDPG
+- [ ] PPO
 
 # Requirements
 
@@ -23,7 +24,6 @@ $ python run_a2c.py
 
 # TODO
 - [ ] TRPO
-- [ ] PPO
 - [ ] LOLA
 
 # Acknowledgments

@@ -1,7 +1,8 @@
 
-import numpy as np
 import torch as th
 from torch import nn
+
+import numpy as np
 
 from A2C import A2C
 from common.kfac import KFACOptimizer
@@ -12,29 +13,30 @@ class ACKTR(A2C):
     """
     An agent learned with ACKTR
     """
-    def __init__(self, env, memory_capacity, state_dim, action_dim,
-                 actor_hidden_size=32, actor_lr=0.001,
-                 critic_hidden_size=32, critic_lr=0.001,
-                 max_grad_norm=None, entropy_reg=0.01,
-                 optimizer_type="rmsprop", alpha=0.99, epsilon=1e-08,
-                 use_cuda=False, batch_size=10, n_steps=5,
-                 reward_gamma=0.99, done_penalty=None,
-                 epsilon_start=0.9, epsilon_end=0.05,
-                 epsilon_decay=200, episodes_before_train=100,
-                 critic_loss="huber"):
-        super(ACKTR, self).__init__(env, memory_capacity, state_dim, action_dim,
-                 actor_hidden_size, actor_lr,
-                 critic_hidden_size, critic_lr,
-                 max_grad_norm, entropy_reg,
-                 optimizer_type, alpha, epsilon,
-                 use_cuda, batch_size, n_steps,
-                 reward_gamma, done_penalty,
-                 epsilon_start, epsilon_end,
-                 epsilon_decay, episodes_before_train,
-                 critic_loss)
+    def __init__(self, env, state_dim, action_dim,
+                 memory_capacity=10000, max_steps=None,
+                 roll_out_n_steps=10,
+                 reward_gamma=0.99, reward_scale=1., done_penalty=None,
+                 actor_hidden_size=32, critic_hidden_size=32,
+                 actor_output_act=nn.functional.softmax, critic_loss="mse",
+                 actor_lr=0.001, critic_lr=0.001,
+                 optimizer_type="rmsprop", entropy_reg=0.01,
+                 max_grad_norm=0.5, batch_size=100, episodes_before_train=100,
+                 epsilon_start=0.9, epsilon_end=0.01, epsilon_decay=200,
+                 use_cuda=True):
+        super(ACKTR, self).__init__(env, state_dim, action_dim,
+                 memory_capacity, max_steps, roll_out_n_steps,
+                 reward_gamma, reward_scale, done_penalty,
+                 actor_hidden_size, critic_hidden_size,
+                 actor_output_act, critic_loss,
+                 actor_lr, critic_lr,
+                 optimizer_type, entropy_reg,
+                 max_grad_norm, batch_size, episodes_before_train,
+                 epsilon_start, epsilon_end, epsilon_decay,
+                 use_cuda)
 
-        self.actor_optimizer = KFACOptimizer(self.actor, lr=actor_lr)
-        self.critic_optimizer = KFACOptimizer(self.critic, lr=critic_lr)
+        self.actor_optimizer = KFACOptimizer(self.actor, lr=self.actor_lr)
+        self.critic_optimizer = KFACOptimizer(self.critic, lr=self.critic_lr)
 
     # train on a roll out batch
     def train(self):
