@@ -85,7 +85,8 @@ class A2C(Agent):
             action = self.exploration_action(self.env_state)
             next_state, reward, done, _ = self.env.step(action)
             actions.append(index_to_one_hot(action, self.action_dim))
-            reward = self.done_penalty if done else reward
+            if done and self.done_penalty is not None:
+                reward = self.done_penalty
             rewards.append(reward)
             final_state = next_state
             self.env_state = next_state
@@ -124,7 +125,7 @@ class A2C(Agent):
         advantages = rewards_var - values
         pg_loss = th.mean(neg_logloss * advantages)
         entropy_loss = th.mean(entropy(softmax_actions))
-        actor_loss = pg_loss + entropy_loss * self.entropy_reg
+        actor_loss = pg_loss - entropy_loss * self.entropy_reg
         actor_loss.backward()
         if self.max_grad_norm is not None:
             nn.utils.clip_grad_norm(self.actor.parameters(), self.max_grad_norm)
@@ -159,7 +160,7 @@ class A2C(Agent):
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
                                   np.exp(-1. * self.n_steps / self.epsilon_decay)
         if np.random.rand() < epsilon:
-            action = np.random.choice(self.action_dim, p=softmax_action)
+            action = np.random.choice(self.action_dim)
         else:
             action = np.argmax(softmax_action)
         return action

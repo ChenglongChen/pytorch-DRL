@@ -3,6 +3,7 @@
 This project includes PyTorch implementations of various Deep Reinforcement Learning algorithms for both single agent and multi-agent.
 
 - [ ] A2C
+- [ ] ACKTR
 - [ ] DQN
 - [ ] DDPG
 
@@ -24,3 +25,6 @@ $ python run_a2c.py
 - [ ] TRPO
 - [ ] PPO
 - [ ] LOLA
+
+# Acknowledgments
+- [ ] kfac optimizer is taken from https://github.com/ikostrikov/pytorch-a2c-ppo-acktr.

@@ -1,5 +1,6 @@
 
 from DDPG import DDPG
+from common.utils import agg_double_list
 
 import gym
 import sys
@@ -52,10 +53,11 @@ def run(env_id="Pendulum-v0"):
         if ddpg.n_episodes >= EPISODES_BEFORE_TRAIN:
             ddpg.train()
         if ddpg.episode_done and ((ddpg.n_episodes+1)%EVAL_INTERVAL == 0):
-            rewards = ddpg.evaluation(env_eval, EVAL_EPISODES)
-            print("Episode: %d, Average Reward: %.5f" % (ddpg.n_episodes+1, rewards))
+            rewards, _ = ddpg.evaluation(env_eval, EVAL_EPISODES)
+            rewards_mu, rewards_std = agg_double_list(rewards)
+            print("Episode: %d, Average Reward: %.5f" % (ddpg.n_episodes+1, rewards_mu))
             episodes.append(ddpg.n_episodes+1)
-            eval_rewards.append(rewards)
+            eval_rewards.append(rewards_mu)
 
     episodes = np.array(episodes)
     eval_rewards = np.array(eval_rewards)

@@ -1,5 +1,5 @@
 
-from A2C import A2C
+from ACKTR import ACKTR
 from common.utils import agg_double_list
 
 import sys
@@ -47,7 +47,7 @@ def run(env_id="CartPole-v0"):
     else:
         action_dim = env.action_space.n
 
-    a2c = A2C(env=env, memory_capacity=MEMORY_CAPACITY,
+    acktr = ACKTR(env=env, memory_capacity=MEMORY_CAPACITY,
               state_dim=state_dim, action_dim=action_dim,
               batch_size=BATCH_SIZE, entropy_reg=ENTROPY_REG,
               done_penalty=DONE_PENALTY, n_steps=N_STEPS,
@@ -59,28 +59,28 @@ def run(env_id="CartPole-v0"):
 
     episodes =[]
     eval_rewards =[]
-    while a2c.n_episodes < MAX_EPISODES:
-        a2c.interact()
-        if a2c.n_episodes >= EPISODES_BEFORE_TRAIN:
-            a2c.train()
-        if a2c.episode_done and ((a2c.n_episodes+1)%EVAL_INTERVAL == 0):
-            rewards, _ = a2c.evaluation(env_eval, EVAL_EPISODES)
+    while acktr.n_episodes < MAX_EPISODES:
+        acktr.interact()
+        if acktr.n_episodes >= EPISODES_BEFORE_TRAIN:
+            acktr.train()
+        if acktr.episode_done and ((acktr.n_episodes+1)%EVAL_INTERVAL == 0):
+            rewards, _ = acktr.evaluation(env_eval, EVAL_EPISODES)
             rewards_mu, rewards_std = agg_double_list(rewards)
-            print("Episode %d, Average Reward %.2f" % (a2c.n_episodes+1, rewards_mu))
-            episodes.append(a2c.n_episodes+1)
+            print("Episode %d, Average Reward %.2f" % (acktr.n_episodes+1, rewards_mu))
+            episodes.append(acktr.n_episodes+1)
             eval_rewards.append(rewards_mu)
 
     episodes = np.array(episodes)
     eval_rewards = np.array(eval_rewards)
-    np.savetxt("./output/%s_a2c_episodes.txt"%env_id, episodes)
-    np.savetxt("./output/%s_a2c_eval_rewards.txt"%env_id, eval_rewards)
+    np.savetxt("./output/%s_acktr_episodes.txt"%env_id, episodes)
+    np.savetxt("./output/%s_acktr_eval_rewards.txt"%env_id, eval_rewards)
 
     plt.figure()
     plt.plot(episodes, eval_rewards)
     plt.xlabel("Episode")
     plt.ylabel("Average Reward")
     plt.legend(["A2C"])
-    plt.savefig("./output/%s_a2c.png"%env_id)
+    plt.savefig("./output/%s_acktr.png"%env_id)
 
 
 if __name__ == "__main__":

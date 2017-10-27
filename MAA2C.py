@@ -81,7 +81,6 @@ class MAA2C(Agent):
             self.critic_optimizers = [RMSprop(c.parameters(), lr=critic_lr, alpha=alpha, eps=epsilon)
                                         for c in self.critics]
         self.use_cuda = use_cuda and th.cuda.is_available()
-        self.FloatTensor = th.cuda.FloatTensor if self.use_cuda else th.FloatTensor
         if self.use_cuda:
             for a in self.actors:
                 a.cuda()
@@ -156,7 +155,7 @@ class MAA2C(Agent):
             neg_logloss = - th.sum(softmax_actions * actions_var[:,agent_id,:], 1)
             pg_loss = th.mean(neg_logloss * advantages)
             entropy_loss = th.mean(entropy(softmax_actions))
-            actor_loss = pg_loss + entropy_loss * self.entropy_reg
+            actor_loss = pg_loss - entropy_loss * self.entropy_reg
             actor_loss.backward()
             if self.max_grad_norm is not None:
                 nn.utils.clip_grad_norm(self.actors[agent_id].parameters(), self.max_grad_norm)
