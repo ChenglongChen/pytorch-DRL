@@ -5,12 +5,13 @@ from torch.optim import Adam, RMSprop
 from copy import deepcopy
 import numpy as np
 
+from common.Agent import Agent
 from common.Memory import ReplayMemory
 from common.Model import ActorNetwork, CriticNetwork
 from common.utils import to_tensor_var
 
 
-class DDPG(object):
+class DDPG(Agent):
     """
     An agent learned with Deep Deterministic Policy Gradient using Actor-Critic framework
     - Actor takes state as input
@@ -171,18 +172,3 @@ class DDPG(object):
         else:
             action = action_var.data.numpy()[0]
         return action
-
-    # evaluation
-    def evaluation(self, env, eval_episodes=10):
-        rewards = 0
-        for i in range(eval_episodes):
-            state = env.reset()
-            action = self.action(state)
-            state, reward, done, _ = env.step(action)
-            rewards += reward
-            while not done:
-                action = self.action(state)
-                state, reward, done, _ = env.step(action)
-                rewards += reward
-        rewards /= float(eval_episodes)
-        return rewards

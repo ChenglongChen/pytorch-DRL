@@ -1,5 +1,6 @@
 
 from A2C import A2C
+from common.utils import agg_double_list
 
 import sys
 import gym
@@ -64,10 +65,11 @@ def run(env_id="CartPole-v0"):
         if a2c.n_episodes >= EPISODES_BEFORE_TRAIN:
             a2c.train()
         if a2c.episode_done and ((a2c.n_episodes+1)%EVAL_INTERVAL == 0):
-            rewards = a2c.evaluation(env_eval, EVAL_EPISODES)
-            print("Episode %d, Average Reward %.2f" % (a2c.n_episodes+1, rewards))
+            rewards, _ = a2c.evaluation(env_eval, EVAL_EPISODES)
+            rewards_mu, rewards_std = agg_double_list(rewards)
+            print("Episode %d, Average Reward %.2f" % (a2c.n_episodes+1, rewards_mu))
             episodes.append(a2c.n_episodes+1)
-            eval_rewards.append(rewards)
+            eval_rewards.append(rewards_mu)
 
     episodes = np.array(episodes)
     eval_rewards = np.array(eval_rewards)

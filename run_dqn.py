@@ -1,5 +1,6 @@
 
 from DQN import DQN
+from common.utils import agg_double_list
 
 import sys
 import gym
@@ -58,10 +59,11 @@ def run(env_id="CartPole-v0"):
         if dqn.n_episodes >= EPISODES_BEFORE_TRAIN:
             dqn.train()
         if dqn.episode_done and ((dqn.n_episodes+1)%EVAL_INTERVAL == 0):
-            rewards = dqn.evaluation(env_eval, EVAL_EPISODES)
-            print("Episode %d, Average Reward %.2f" % (dqn.n_episodes+1, rewards))
+            rewards, _ = dqn.evaluation(env_eval, EVAL_EPISODES)
+            rewards_mu, rewards_std = agg_double_list(rewards)
+            print("Episode %d, Average Reward %.2f" % (dqn.n_episodes+1, rewards_mu))
             episodes.append(dqn.n_episodes+1)
-            eval_rewards.append(rewards)
+            eval_rewards.append(rewards_mu)
 
     episodes = np.array(episodes)
     eval_rewards = np.array(eval_rewards)

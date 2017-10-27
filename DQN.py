@@ -4,12 +4,13 @@ from torch import nn
 from torch.optim import Adam, RMSprop
 import numpy as np
 
+from common.Agent import Agent
 from common.Memory import ReplayMemory
 from common.Model import ActorNetwork
 from common.utils import identity, to_tensor_var
 
 
-class DQN(object):
+class DQN(Agent):
     """
     An agent learned with DQN using replay memory and temporal difference
     - use a value network to estimate the state-action value
@@ -132,18 +133,3 @@ class DQN(object):
             state_action_value = state_action_value_var.data.numpy()[0]
         action = np.argmax(state_action_value)
         return action
-
-    # evaluation
-    def evaluation(self, env, eval_episodes=10):
-        rewards = 0
-        for i in range(eval_episodes):
-            state = env.reset()
-            action = self.action(state)
-            state, reward, done, _ = env.step(action)
-            rewards += reward
-            while not done:
-                action = self.action(state)
-                state, reward, done, _ = env.step(action)
-                rewards += reward
-        rewards /= float(eval_episodes)
-        return rewards

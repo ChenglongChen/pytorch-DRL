@@ -4,12 +4,13 @@ from torch import nn
 from torch.optim import Adam, RMSprop
 import numpy as np
 
+from common.Agent import Agent
 from common.Memory import ReplayMemory
 from common.Model import ActorNetwork, CriticNetwork
 from common.utils import entropy, index_to_one_hot, to_tensor_var
 
 
-class MAA2C(object):
+class MAA2C(Agent):
     """
     An multi-agent learned with Advantage Actor-Critic
     - Actor takes its local observations as input
@@ -184,9 +185,9 @@ class MAA2C(object):
         for agent_id in range(self.n_agents):
             softmax_action_var = self.actors[agent_id](state_var[:,agent_id,:])
             if self.use_cuda:
-                softmax_action[agent_id] = np.argmax(softmax_action_var.data.cpu().numpy()[0])
+                softmax_action[agent_id] = softmax_action_var.data.cpu().numpy()[0]
             else:
-                softmax_action[agent_id] = np.argmax(softmax_action_var.data.numpy()[0])
+                softmax_action[agent_id] = softmax_action_var.data.numpy()[0]
         return softmax_action
 
     # predict action based on state, added random noise for exploration in training
@@ -197,7 +198,7 @@ class MAA2C(object):
                                      np.exp(-1. * self.n_steps / self.epsilon_decay)
         for agent_id in range(self.n_agents):
             if np.random.rand() < epsilon:
-                actions[agent_id] = np.random.choice(self.action_dim, p=softmax_action[agent_id])
+                actions[agent_id] = np.random.choice(self.action_dim)
             else:
                 actions[agent_id] = np.argmax(softmax_action[agent_id])
         return actions
@@ -225,18 +226,3 @@ class MAA2C(object):
             else:
                 values[agent_id] = value_var.data.numpy()[0]
         return values
-    
-    # evaluation
-    def evaluation(self, env, eval_episodes=10):
-        rewards = np.zeros(self.n_agents)
-        for i in range(eval_episodes):
-            state = env.reset()
-            action = self.action(state)
-            state, reward, done, _ = env.step(action)
-            rewards += np.array(reward)
-            while not done:
-                action = self.action(state)
-                state, reward, done, _ = env.step(action)
-                rewards += np.array(reward)
-        rewards /= float(eval_episodes)
-        return rewards

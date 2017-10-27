@@ -4,12 +4,13 @@ from torch import nn
 from torch.optim import Adam, RMSprop
 import numpy as np
 
+from common.Agent import Agent
 from common.Memory import ReplayMemory
 from common.Model import ActorNetwork, CriticNetwork
 from common.utils import entropy, index_to_one_hot, to_tensor_var
 
 
-class A2C(object):
+class A2C(Agent):
     """
     An agent learned with Advantage Actor-Critic
     - Actor takes state as input
@@ -118,9 +119,9 @@ class A2C(object):
         self.actor_optimizer.zero_grad()
         # actions_var is with noise, while softmax_actions is the accurate predictions
         softmax_actions = self.actor(states_var)
+        neg_logloss = - th.sum(softmax_actions * actions_var, 1)
         values = self.critic(states_var, actions_var).detach()
         advantages = rewards_var - values
-        neg_logloss = - th.sum(softmax_actions * actions_var, 1)
         pg_loss = th.mean(neg_logloss * advantages)
         entropy_loss = th.mean(entropy(softmax_actions))
         actor_loss = pg_loss + entropy_loss * self.entropy_reg
@@ -179,18 +180,3 @@ class A2C(object):
         else:
             value = value_var.data.numpy()[0]
         return value
-
-    # evaluation
-    def evaluation(self, env, eval_episodes=10):
-        rewards = 0
-        for i in range(eval_episodes):
-            state = env.reset()
-            action = self.action(state)
-            state, reward, done, _ = env.step(action)
-            rewards += reward
-            while not done:
-                action = self.action(state)
-                state, reward, done, _ = env.step(action)
-                rewards += reward
-        rewards /= float(eval_episodes)
-        return rewards

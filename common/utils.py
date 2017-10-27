@@ -35,3 +35,12 @@ def to_tensor_var(x, use_cuda=True, dtype="float"):
     else:
         x = np.array(x, dtype=np.float64)
         return Variable(FloatTensor(x))
+
+
+def agg_double_list(l):
+    # l: [ [...], [...], [...] ]
+    # l_i: result of each step in the i-th episode
+    s = [np.sum(np.array(l_i), 0) for l_i in l]
+    s_mu = np.mean(np.array(s), 0)
+    s_std = np.std(np.array(s), 0)
+    return s_mu, s_std
