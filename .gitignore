@@ -1,6 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 common/__pycache__/
+common/kfac.py
 *.py[cod]
 *$py.class
 
