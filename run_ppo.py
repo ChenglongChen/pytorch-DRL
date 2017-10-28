@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-MAX_EPISODES = 10000
+MAX_EPISODES = 5000
 EPISODES_BEFORE_TRAIN = 100
 EVAL_EPISODES = 10
 EVAL_INTERVAL = 100
@@ -17,7 +17,7 @@ EVAL_INTERVAL = 100
 ROLL_OUT_N_STEPS = 10
 # only remember the latest ROLL_OUT_N_STEPS
 MEMORY_CAPACITY = ROLL_OUT_N_STEPS
-# only use the latest ROLL_OUT_N_STEPS for training a2c
+# only use the latest ROLL_OUT_N_STEPS for training PPO
 BATCH_SIZE = ROLL_OUT_N_STEPS
 
 TARGET_UPDATE_STEPS = 5
@@ -81,9 +81,10 @@ def run(env_id="CartPole-v0"):
 
     plt.figure()
     plt.plot(episodes, eval_rewards)
+    plt.title("%s" % env_id)
     plt.xlabel("Episode")
     plt.ylabel("Average Reward")
-    plt.legend(["A2C"])
+    plt.legend(["PPO"])
     plt.savefig("./output/%s_ppo.png"%env_id)
 
 

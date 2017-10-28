@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-MAX_EPISODES = 10000
+MAX_EPISODES = 5000
 EPISODES_BEFORE_TRAIN = 0
 EVAL_EPISODES = 10
 EVAL_INTERVAL = 100
@@ -17,7 +17,7 @@ EVAL_INTERVAL = 100
 MAX_STEPS = 10000 # None
 
 MEMORY_CAPACITY = 10000
-BATCH_SIZE = 10
+BATCH_SIZE = 100
 CRITIC_LOSS = "mse"
 MAX_GRAD_NORM = None
 
@@ -73,6 +73,7 @@ def run(env_id="CartPole-v0"):
 
     plt.figure()
     plt.plot(episodes, eval_rewards)
+    plt.title("%s" % env_id)
     plt.xlabel("Episode")
     plt.ylabel("Average Reward")
     plt.legend(["DQN"])

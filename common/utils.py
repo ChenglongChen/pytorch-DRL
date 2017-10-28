@@ -13,9 +13,8 @@ def entropy(p):
 
 
 def index_to_one_hot(index, dim):
-    assert index < dim
-    one_hot = np.zeros(dim)
-    one_hot[index] = 1
+    one_hot = np.zeros((len(index), dim))
+    one_hot[np.arange(len(index)), index] = 1.
     return one_hot
 
 
@@ -24,16 +23,16 @@ def to_tensor_var(x, use_cuda=True, dtype="float"):
     LongTensor = th.cuda.LongTensor if use_cuda else th.LongTensor
     ByteTensor = th.cuda.ByteTensor if use_cuda else th.ByteTensor
     if dtype == "float":
-        x = np.array(x, dtype=np.float64)
+        x = np.array(x, dtype=np.float64).tolist()
         return Variable(FloatTensor(x))
     elif dtype == "long":
-        x = np.array(x, dtype=np.long)
+        x = np.array(x, dtype=np.long).tolist()
         return Variable(LongTensor(x))
     elif dtype == "byte":
-        x = np.array(x, dtype=np.byte)
+        x = np.array(x, dtype=np.byte).tolist()
         return Variable(ByteTensor(x))
     else:
-        x = np.array(x, dtype=np.float64)
+        x = np.array(x, dtype=np.float64).tolist()
         return Variable(FloatTensor(x))
 
 

@@ -1,5 +1,6 @@
 
-from ACKTR import ACKTR
+from ACKTR import DisjointACKTR as ACKTR
+from ACKTR import JointACKTR as ACKTR
 from common.utils import agg_double_list
 
 import sys
@@ -8,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-MAX_EPISODES = 10000
+MAX_EPISODES = 5000
 EPISODES_BEFORE_TRAIN = 0
 EVAL_EPISODES = 10
 EVAL_INTERVAL = 100
@@ -17,7 +18,7 @@ EVAL_INTERVAL = 100
 ROLL_OUT_N_STEPS = 10
 # only remember the latest ROLL_OUT_N_STEPS
 MEMORY_CAPACITY = ROLL_OUT_N_STEPS
-# only use the latest ROLL_OUT_N_STEPS for training a2c
+# only use the latest ROLL_OUT_N_STEPS for training A2C
 BATCH_SIZE = ROLL_OUT_N_STEPS
 
 REWARD_DISCOUNTED_GAMMA = 0.99
@@ -77,9 +78,10 @@ def run(env_id="CartPole-v0"):
 
     plt.figure()
     plt.plot(episodes, eval_rewards)
+    plt.title("%s" % env_id)
     plt.xlabel("Episode")
     plt.ylabel("Average Reward")
-    plt.legend(["A2C"])
+    plt.legend(["ACKTR"])
     plt.savefig("./output/%s_acktr.png"%env_id)
 
 

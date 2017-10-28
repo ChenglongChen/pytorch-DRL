@@ -108,5 +108,5 @@ venv.bak/
 #
 GridWorld/
 run_gridworld*
-output/*
+output/*.txt
 .idea

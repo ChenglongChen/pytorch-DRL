@@ -68,55 +68,9 @@ class PPO(Agent):
             self.actor_target.cuda()
             self.critic_target.cuda()
 
-    # discount roll out rewards
-    def _discount_reward(self, rewards, final_r):
-        discounted_r = np.zeros_like(rewards)
-        running_add = final_r
-        for t in reversed(range(0, len(rewards))):
-            running_add = running_add * self.reward_gamma + rewards[t]
-            discounted_r[t] = running_add
-        return discounted_r
-
     # agent interact with the environment to collect experience
     def interact(self):
-        if (self.max_steps is not None) and (self.n_steps >= self.max_steps):
-            self.env_state = self.env.reset()
-            self.n_steps = 0
-        states = []
-        actions = []
-        rewards = []
-        # take n steps
-        for i in range(self.roll_out_n_steps):
-            states.append(self.env_state)
-            action = self.exploration_action(self.env_state)
-            next_state, reward, done, _ = self.env.step(action)
-            actions.append(index_to_one_hot(action, self.action_dim))
-            if done and self.done_penalty is not None:
-                reward = self.done_penalty
-            rewards.append(reward)
-            final_state = next_state
-            self.env_state = next_state
-            if done:
-                self.env_state = self.env.reset()
-                break
-        # discount reward
-        if done:
-            final_r = 0.0
-            self.n_episodes += 1
-            self.episode_done = True
-        else:
-            self.episode_done = False
-            final_action = self.action(final_state)
-            final_r = self.value(final_state, index_to_one_hot(final_action, self.action_dim))
-        rewards = self._discount_reward(rewards, final_r)
-        self.n_steps += 1
-        self.memory.push(states, actions, rewards)
-
-    # soft update the actor target network or critic target network
-    def _soft_update_target(self, target, source):
-        for t, s in zip(target.parameters(), source.parameters()):
-            t.data.copy_(
-                (1. - self.target_tau) * t.data + self.target_tau * s.data)
+        super(PPO, self)._take_n_steps()
 
     # train on a roll out batch
     def train(self):
@@ -125,7 +79,8 @@ class PPO(Agent):
 
         batch = self.memory.sample(self.batch_size)
         states_var = to_tensor_var(batch.states, self.use_cuda).view(-1, self.state_dim)
-        actions_var = to_tensor_var(batch.actions, self.use_cuda).view(-1, self.action_dim)
+        one_hot_actions = index_to_one_hot(batch.actions, self.action_dim)
+        actions_var = to_tensor_var(one_hot_actions, self.use_cuda).view(-1, self.action_dim)
         rewards_var = to_tensor_var(batch.rewards, self.use_cuda).view(-1, 1)
 
         # update actor network
@@ -142,7 +97,7 @@ class PPO(Agent):
         surr1 = ratio * advantages
         surr2 = th.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * advantages
         # PPO's pessimistic surrogate (L^CLIP)
-        actor_loss = - th.mean(th.min(surr1, surr2))
+        actor_loss = -th.mean(th.min(surr1, surr2))
         actor_loss.backward()
         if self.max_grad_norm is not None:
             nn.utils.clip_grad_norm(self.actor.parameters(), self.max_grad_norm)
@@ -163,22 +118,22 @@ class PPO(Agent):
 
         # update actor target network and critic target network
         if self.n_steps % self.target_update_steps == 0 and self.n_steps > 0:
-            self._soft_update_target(self.actor_target, self.actor)
-            self._soft_update_target(self.critic_target, self.critic)
+            super(PPO, self)._soft_update_target(self.actor_target, self.actor)
+            super(PPO, self)._soft_update_target(self.critic_target, self.critic)
 
     # predict softmax action based on state
-    def _softmax_action(self, state, actor):
+    def _softmax_action(self, state):
         state_var = to_tensor_var([state], self.use_cuda)
-        softmax_action_var = th.exp(actor(state_var))
+        softmax_action_var = th.exp(self.actor(state_var))
         if self.use_cuda:
             softmax_action = softmax_action_var.data.cpu().numpy()[0]
         else:
             softmax_action = softmax_action_var.data.numpy()[0]
         return softmax_action
 
-    # predict action based on state, added random noise for exploration in training
+    # choice an action based on state with random noise added for exploration in training
     def exploration_action(self, state):
-        softmax_action = self._softmax_action(state, self.actor)
+        softmax_action = self._softmax_action(state)
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
                                   np.exp(-1. * self.n_steps / self.epsilon_decay)
         if np.random.rand() < epsilon:
@@ -187,15 +142,16 @@ class PPO(Agent):
             action = np.argmax(softmax_action)
         return action
 
-    # predict action based on state for execution
+    # choice an action based on state for execution
     def action(self, state):
-        softmax_action = self._softmax_action(state, self.actor)
+        softmax_action = self._softmax_action(state)
         action = np.argmax(softmax_action)
         return action
 
-    # evaluate value
+    # evaluate value for a state-action pair
     def value(self, state, action):
         state_var = to_tensor_var([state], self.use_cuda)
+        action = index_to_one_hot([action], self.action_dim).flatten()
         action_var = to_tensor_var([action], self.use_cuda)
         value_var = self.critic(state_var, action_var)
         if self.use_cuda:

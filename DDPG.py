@@ -24,7 +24,7 @@ class DDPG(Agent):
                  actor_hidden_size=32, critic_hidden_size=32,
                  actor_output_act=nn.functional.tanh, critic_loss="mse",
                  actor_lr=0.001, critic_lr=0.001,
-                 optimizer_type="rmsprop", entropy_reg=0.01,
+                 optimizer_type="adam", entropy_reg=0.01,
                  max_grad_norm=0.5, batch_size=100, episodes_before_train=100,
                  epsilon_start=0.9, epsilon_end=0.01, epsilon_decay=200,
                  use_cuda=True):
@@ -61,11 +61,9 @@ class DDPG(Agent):
             self.actor_target.cuda()
             self.critic_target.cuda()
 
-    # soft update the actor target network or critic target network
-    def _soft_update_target(self, target, source):
-        for t, s in zip(target.parameters(), source.parameters()):
-            t.data.copy_(
-                (1. - self.target_tau) * t.data + self.target_tau * s.data)
+    # agent interact with the environment to collect experience
+    def interact(self):
+        super(DDPG, self)._take_one_step()
 
     # train on a sample batch
     def train(self):
@@ -113,10 +111,10 @@ class DDPG(Agent):
 
         # update actor target network and critic target network
         if self.n_steps % self.target_update_steps == 0 and self.n_steps > 0:
-            self._soft_update_target(self.critic_target, self.critic)
-            self._soft_update_target(self.actor_target, self.actor)
+            super(DDPG, self)._soft_update_target(self.critic_target, self.critic)
+            super(DDPG, self)._soft_update_target(self.actor_target, self.actor)
 
-    # predict action based on state, added random noise for exploration in training
+    # choice an action based on state with random noise added for exploration in training
     def exploration_action(self, state):
         action = self.action(state)
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
@@ -126,7 +124,7 @@ class DDPG(Agent):
         action += noise
         return action
 
-    # predict action based on state for execution (using current actor)
+    # choice an action based on state for execution
     def action(self, state):
         action_var = self.actor(to_tensor_var([state], self.use_cuda))
         if self.use_cuda:

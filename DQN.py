@@ -45,6 +45,10 @@ class DQN(Agent):
         if self.use_cuda:
             self.actor.cuda()
 
+    # agent interact with the environment to collect experience
+    def interact(self):
+        super(DQN, self)._take_one_step()
+
     # train on a sample batch
     def train(self):
         if self.n_episodes <= self.episodes_before_train:
@@ -79,7 +83,7 @@ class DQN(Agent):
             nn.utils.clip_grad_norm(self.actor.parameters(), self.max_grad_norm)
         self.actor_optimizer.step()
 
-    # predict action based on state, added random noise for exploration in training
+    # choice an action based on state with random noise added for exploration in training
     def exploration_action(self, state):
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
                                   np.exp(-1. * self.n_steps / self.epsilon_decay)
@@ -89,7 +93,7 @@ class DQN(Agent):
             action = self.action(state)
         return action
 
-    # predict action based on state for execution
+    # choice an action based on state for execution
     def action(self, state):
         state_var = to_tensor_var([state], self.use_cuda)
         state_action_value_var = self.actor(state_var)
