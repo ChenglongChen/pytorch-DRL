@@ -11,8 +11,8 @@ This project includes PyTorch implementations of various Deep Reinforcement Lear
 It is written in a modular way to allow for sharing code between different algorithms. In specific, each algorithm is represented as a learning agent with a unified interface including the following components:
 - [ ] interact: interact with the environment to collect experience. Taking one step forward and n steps forward are both supported (see `_take_one_step_` and `_take_n_steps`, respectively)
 - [ ] train: train on a sample batch
-- [ ] exploration_action: choice an action based on state with random noise added for exploration in training
-- [ ] action: choice an action based on state for execution
+- [ ] exploration_action: choose an action based on state with random noise added for exploration in training
+- [ ] action: choose an action based on state for execution
 - [ ] value: evaluate value for a state-action pair
 - [ ] evaluation: evaluation the learned agent
 
@@ -28,7 +28,6 @@ To train a model:
 
 ```
 $ python run_a2c.py
-
 ```
 
 ## Results
@@ -61,6 +60,9 @@ It's extremely difficult to reproduce results for Reinforcement Learning algorit
 - [ ] Parameter noise
 
 # Acknowledgments
-This project get inspirations from the following projects:
+This project gets inspirations from the following projects:
 - [ ] Ilya Kostrikov's [pytorch-a2c-ppo-acktr](https://github.com/ChenglongChen/pytorch-a2c-ppo-acktr) (kfac optimizer is taken from here)
 - [ ] OpenAI's [baselines](https://github.com/openai/baselines)
+
+# License
+MIT

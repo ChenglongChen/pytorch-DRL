@@ -131,7 +131,7 @@ class PPO(Agent):
             softmax_action = softmax_action_var.data.numpy()[0]
         return softmax_action
 
-    # choice an action based on state with random noise added for exploration in training
+    # choose an action based on state with random noise added for exploration in training
     def exploration_action(self, state):
         softmax_action = self._softmax_action(state)
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
@@ -142,7 +142,7 @@ class PPO(Agent):
             action = np.argmax(softmax_action)
         return action
 
-    # choice an action based on state for execution
+    # choose an action based on state for execution
     def action(self, state):
         softmax_action = self._softmax_action(state)
         action = np.argmax(softmax_action)
@@ -151,7 +151,7 @@ class PPO(Agent):
     # evaluate value for a state-action pair
     def value(self, state, action):
         state_var = to_tensor_var([state], self.use_cuda)
-        action = index_to_one_hot([action], self.action_dim).flatten()
+        action = index_to_one_hot(action, self.action_dim)
         action_var = to_tensor_var([action], self.use_cuda)
         value_var = self.critic(state_var, action_var)
         if self.use_cuda:

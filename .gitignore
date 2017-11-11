@@ -109,4 +109,8 @@ venv.bak/
 GridWorld/
 run_gridworld*
 output/*.txt
+output/GridWorld*
 .idea
+TRPO*
+*trpo*
+output/*trpo*

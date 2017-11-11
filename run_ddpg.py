@@ -74,6 +74,7 @@ def run(env_id="Pendulum-v0"):
 
     plt.figure()
     plt.plot(episodes, eval_rewards)
+    plt.title("%s" % env_id)
     plt.xlabel("Episode")
     plt.ylabel("Average Reward")
     plt.legend(["DDPG"])

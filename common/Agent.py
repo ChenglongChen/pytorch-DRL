@@ -16,9 +16,9 @@ class Agent(object):
         - _discount_reward: discount roll out rewards
     - train: train on a sample batch
         - _soft_update_target: soft update the target network
-    - exploration_action: choice an action based on state with random noise
+    - exploration_action: choose an action based on state with random noise
                             added for exploration in training
-    - action: choice an action based on state for execution
+    - action: choose an action based on state for execution
     - value: evaluate value for a state-action pair
     - evaluation: evaluation a learned agent
     """
@@ -146,11 +146,11 @@ class Agent(object):
     def train(self):
         pass
 
-    # choice an action based on state with random noise added for exploration in training
+    # choose an action based on state with random noise added for exploration in training
     def exploration_action(self, state):
         pass
 
-    # choice an action based on state for execution
+    # choose an action based on state for execution
     def action(self, state):
         pass
 
@@ -168,11 +168,13 @@ class Agent(object):
             state = env.reset()
             action = self.action(state)
             state, reward, done, info = env.step(action)
+            done = done[0] if isinstance(done, list) else done
             rewards_i.append(reward)
             infos_i.append(info)
             while not done:
                 action = self.action(state)
                 state, reward, done, info = env.step(action)
+                done = done[0] if isinstance(done, list) else done
                 rewards_i.append(reward)
                 infos_i.append(info)
             rewards.append(rewards_i)

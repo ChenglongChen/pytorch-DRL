@@ -114,7 +114,7 @@ class DDPG(Agent):
             super(DDPG, self)._soft_update_target(self.critic_target, self.critic)
             super(DDPG, self)._soft_update_target(self.actor_target, self.actor)
 
-    # choice an action based on state with random noise added for exploration in training
+    # choose an action based on state with random noise added for exploration in training
     def exploration_action(self, state):
         action = self.action(state)
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
@@ -124,7 +124,7 @@ class DDPG(Agent):
         action += noise
         return action
 
-    # choice an action based on state for execution
+    # choose an action based on state for execution
     def action(self, state):
         action_var = self.actor(to_tensor_var([state], self.use_cuda))
         if self.use_cuda:

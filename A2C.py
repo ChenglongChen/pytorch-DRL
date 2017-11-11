@@ -75,8 +75,8 @@ class A2C(Agent):
         action_log_probs = self.actor(states_var)
         entropy_loss = th.mean(entropy(th.exp(action_log_probs)))
         action_log_probs = th.sum(action_log_probs * actions_var, 1)
-        values = self.critic(states_var, actions_var).detach()
-        advantages = rewards_var - values
+        values = self.critic(states_var, actions_var)
+        advantages = rewards_var - values.detach()
         pg_loss = -th.mean(action_log_probs * advantages)
         actor_loss = pg_loss - entropy_loss * self.entropy_reg
         actor_loss.backward()
@@ -87,7 +87,6 @@ class A2C(Agent):
         # update critic network
         self.critic_optimizer.zero_grad()
         target_values = rewards_var
-        values = self.critic(states_var, actions_var)
         if self.critic_loss == "huber":
             critic_loss = nn.functional.smooth_l1_loss(values, target_values)
         else:
@@ -107,7 +106,7 @@ class A2C(Agent):
             softmax_action = softmax_action_var.data.numpy()[0]
         return softmax_action
 
-    # choice an action based on state with random noise added for exploration in training
+    # choose an action based on state with random noise added for exploration in training
     def exploration_action(self, state):
         softmax_action = self._softmax_action(state)
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
@@ -118,7 +117,7 @@ class A2C(Agent):
             action = np.argmax(softmax_action)
         return action
 
-    # choice an action based on state for execution
+    # choose an action based on state for execution
     def action(self, state):
         softmax_action = self._softmax_action(state)
         action = np.argmax(softmax_action)
@@ -127,7 +126,7 @@ class A2C(Agent):
     # evaluate value for a state-action pair
     def value(self, state, action):
         state_var = to_tensor_var([state], self.use_cuda)
-        action = index_to_one_hot([action], self.action_dim).flatten()
+        action = index_to_one_hot(action, self.action_dim)
         action_var = to_tensor_var([action], self.use_cuda)
         value_var = self.critic(state_var, action_var)
         if self.use_cuda:
